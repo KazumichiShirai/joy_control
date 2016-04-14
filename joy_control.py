@@ -21,6 +21,13 @@ line = 0x0a
 right_motor = 0x00
 left_motor = 0x00
 alpha = 0.5
+command = [protocol_sign, set_speed, dummy, right_motor, dummy, left_motor, dummy, dummy, dummy, dummy, dummy, dummy, line]
+
+def s16(value):
+        return -(value & 0b1000000000000000) | (value & 0b0111111111111111)
+
+def s8(value):
+        return -(value & 0b10000000) | (value & 0b01111111)
 
 def set_motor_value(x, y):
         global right_motor
@@ -36,6 +43,10 @@ def set_motor_value(x, y):
         elif left_motor < -100:
             left_motor = -100
 
+def set_speed_command():
+        global command
+        command = [protocol_sign, set_speed, dummy, right_motor, dummy, left_motor, dummy, dummy, dummy, dummy, dummy, dummy, line]
+
 print (pygame.version.ver)
 pygame.init()
 pygame.joystick.init()
@@ -46,7 +57,7 @@ try:
 except pygame.error:
         print ('No Joystick')
 pygame.display.init()
-command = [protocol_sign, set_speed, right_motor, left_motor, line]
+set_speed_command()
 msg = ''
 limit = 50
 while 1:
@@ -55,7 +66,7 @@ while 1:
         if e.type == pygame.locals.JOYAXISMOTION: # 7
             x , y = j.get_axis(0), j.get_axis(1)
             set_motor_value(x,y)
-            command = [protocol_sign, set_speed, right_motor, left_motor, line]
+            set_speed_command()
             r = spi.xfer(command) #戻り値は配列
             print x
             print y
@@ -63,7 +74,6 @@ while 1:
         elif e.type == pygame.locals.JOYBUTTONDOWN: # 10
                 if e.button == 2:
                         print ('terminate')
-                        command = [protocol_sign, off_control, dummy, dummy, line]
                         time.sleep(1)
                         spi.close()
                         pygame.quit()
@@ -71,20 +81,23 @@ while 1:
                 if e.button == 1:
                         limit = 100
                         set_motor_value(x,y)
-                        command = [protocol_sign, set_speed, right_motor, left_motor, line]
+                        set_speed_command()
                         print limit
         elif e.type == pygame.locals.JOYBUTTONUP:
                 if e.button == 1:
                         limit = 50
                         set_motor_value(x,y)
-                        command = [protocol_sign, set_speed, right_motor, left_motor, line]
+                        set_speed_command()
                         print limit
         elif e.type == pygame.locals.NOEVENT:
             r = spi.xfer(command) #戻り値は配列
             time.sleep(0.02)
-        # if r[0][0] != 0x00:
-        #     msg += chr(r[0][0]) + chr(r[1][0]) + chr(r[2][0])
-        #     if [0x0a] in r:
-        #         print msg
-        #         msg = ''
+        if r[0] == 0xAF:
+            r[0] = 0
+            r_angle_bin = bin((r[6] << 8)|(r[7]))[2:].zfill(8)
+            l_angle_bin = bin((r[8] << 8)|(r[9]))[2:].zfill(8)
+            msg += str(s8(int(r[3]))) + ', ' + str(s8(int(r[5]))) + ', ' + str(s16(int(l_angle_bin,2))) + ', ' + str(s16(int(r_angle_bin,2)))
+            if 0x0a in r:
+                print msg
+            msg = ''
 # end of file
