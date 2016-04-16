@@ -16,6 +16,7 @@ spi.mode = 0b00
 protocol_sign = 0xaf
 set_speed = 0x00
 off_control = 0x01
+read_drv = 0x02
 dummy = 0x00
 line = 0x0a
 right_motor = 0x00
@@ -92,7 +93,7 @@ while 1:
         elif e.type == pygame.locals.NOEVENT:
             r = spi.xfer(command) #戻り値は配列
             time.sleep(0.02)
-        if r[0] == 0xAF:
+        if r[1] == 0x00:
             r[0] = 0
             r_angle_bin = bin((r[6] << 8)|(r[7]))[2:].zfill(8)
             l_angle_bin = bin((r[8] << 8)|(r[9]))[2:].zfill(8)
@@ -100,4 +101,17 @@ while 1:
             if 0x0a in r:
                 print msg
             msg = ''
+        if r[1] == 0x01:
+            side = r[2]
+            e0 = bin((r[3] << 8)|(r[4]))[2:].zfill(8)
+            e1 = bin((r[5] << 8)|(r[6]))[2:].zfill(8)
+            e2 = bin((r[7] << 8)|(r[8]))[2:].zfill(8)
+            e3 = bin((r[9] << 8)|(r[10]))[2:].zfill(8)
+            msg = 'DRV ERR! ' + str(side) + ', ' + str(s16(int(e0,2))) + ', ' + str(s16(int(e1,2))) + ', ' + str(s16(int(e2,2))) + ', ' + str(s16(int(e3,2)))
+            if 0x0a in r:
+                print msg
+            msg = ''
+            if side == 0x00:
+                command = [protocol_sign, read_drv, dummy, right_motor, dummy, left_motor, dummy, dummy, dummy, dummy, dummy, dummy, line]
+                r = spi.xfer(command) #戻り値は配列
 # end of file
